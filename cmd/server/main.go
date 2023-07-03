@@ -30,11 +30,11 @@ func main() {
 
 	fmt.Println("Auth service is on: ", c.Port)
 
-	srv := service.Service{S: storage, Jwt: jwt}
+	srv := service.NewService(storage, jwt)
 
 	grpcServer := grpc.NewServer()
 
-	pb.RegisterAuthServiceServer(grpcServer, &srv)
+	pb.RegisterAuthServiceServer(grpcServer, srv)
 
 	if err := grpcServer.Serve(lis); err != nil {
 		log.Fatalln("Failed to serve: ", err)

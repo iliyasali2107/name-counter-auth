@@ -12,13 +12,27 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-type Service struct {
+type service struct {
 	S   db.Storage
 	Jwt utils.JwtWrapper
 	pb.UnimplementedAuthServiceServer
 }
 
-func (srv *Service) Register(ctx context.Context, req *pb.RegisterRequest) (*pb.RegisterResponse, error) {
+type Service interface {
+	pb.AuthServiceServer
+	Register(context.Context, *pb.RegisterRequest) (*pb.RegisterResponse, error)
+	Login(context.Context, *pb.LoginRequest) (*pb.LoginResponse, error)
+	Validate(context.Context, *pb.ValidateRequest) (*pb.ValidateResponse, error)
+}
+
+func NewService(s db.Storage, jwt utils.JwtWrapper) Service {
+	return &service{
+		S:   s,
+		Jwt: jwt,
+	}
+}
+
+func (srv *service) Register(ctx context.Context, req *pb.RegisterRequest) (*pb.RegisterResponse, error) {
 	var user models.User
 	if _, err := srv.S.GetUser(req.Name); err == nil {
 		return nil, status.Errorf(codes.AlreadyExists, "user already exists")
@@ -39,7 +53,7 @@ func (srv *Service) Register(ctx context.Context, req *pb.RegisterRequest) (*pb.
 	}, nil
 }
 
-func (srv *Service) Login(ctx context.Context, req *pb.LoginRequest) (*pb.LoginResponse, error) {
+func (srv *service) Login(ctx context.Context, req *pb.LoginRequest) (*pb.LoginResponse, error) {
 	var user models.User
 
 	user, err := srv.S.GetUser(req.Name)
@@ -61,7 +75,7 @@ func (srv *Service) Login(ctx context.Context, req *pb.LoginRequest) (*pb.LoginR
 	}, nil
 }
 
-func (srv *Service) Validate(ctx context.Context, req *pb.ValidateRequest) (*pb.ValidateResponse, error) {
+func (srv *service) Validate(ctx context.Context, req *pb.ValidateRequest) (*pb.ValidateResponse, error) {
 	claims, err := srv.Jwt.ValidateToken(req.Token)
 
 	if err != nil {

@@ -37,7 +37,7 @@ func Register(ctx *gin.Context, c pb.AuthServiceClient) {
 			return
 		}
 
-		ctx.JSON(http.StatusInternalServerError, "somethid unexpected happened")
+		ctx.JSON(http.StatusInternalServerError, "something unexpected happened")
 		return
 	}
 
