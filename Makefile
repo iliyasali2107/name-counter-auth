@@ -16,5 +16,8 @@ gen:
 start:
 	docker start my-postgres
 
-mock_service:
-	mockgen -destination=pkg/mocks/mock_service.go --build_flags=--mod=mod -package=mocks name-counter-auth/pkg/service Service
+mock_storage:
+	mockgen -destination=pkg/mocks/mock_storage.go --build_flags=--mod=mod -package=mocks name-counter-auth/pkg/db Storage
+
+test:
+	go test -v -cover ./...

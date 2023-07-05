@@ -62,7 +62,6 @@ func (srv *service) Login(ctx context.Context, req *pb.LoginRequest) (*pb.LoginR
 	}
 
 	match := utils.CheckPasswordHash(req.Password, user.Password)
-
 	if !match {
 		return nil, status.Errorf(codes.Unauthenticated, "password is incorrect")
 	}
@@ -97,4 +96,5 @@ func (srv *service) Validate(ctx context.Context, req *pb.ValidateRequest) (*pb.
 		Status: http.StatusOK,
 		UserID: user.ID,
 	}, nil
+	
 }
