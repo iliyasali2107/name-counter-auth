@@ -2,11 +2,12 @@ package service
 
 import (
 	"context"
+	"net/http"
+
 	"name-counter-auth/pkg/db"
 	"name-counter-auth/pkg/models"
 	"name-counter-auth/pkg/pb"
 	"name-counter-auth/pkg/utils"
-	"net/http"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -69,14 +70,13 @@ func (srv *service) Login(ctx context.Context, req *pb.LoginRequest) (*pb.LoginR
 	token, _ := srv.Jwt.GenerateToken(user)
 
 	return &pb.LoginResponse{
-		Status: http.StatusOK,
+		Status: int64(codes.OK),
 		Token:  token,
 	}, nil
 }
 
 func (srv *service) Validate(ctx context.Context, req *pb.ValidateRequest) (*pb.ValidateResponse, error) {
 	claims, err := srv.Jwt.ValidateToken(req.Token)
-
 	if err != nil {
 		return &pb.ValidateResponse{
 			Status: http.StatusBadRequest,
@@ -96,5 +96,4 @@ func (srv *service) Validate(ctx context.Context, req *pb.ValidateRequest) (*pb.
 		Status: http.StatusOK,
 		UserID: user.ID,
 	}, nil
-	
 }
