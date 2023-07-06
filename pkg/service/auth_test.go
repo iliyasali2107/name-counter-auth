@@ -3,7 +3,9 @@ package service_test
 import (
 	"context"
 	"crypto/rand"
+	"fmt"
 	"math/big"
+	"net/http"
 	"testing"
 
 	"name-counter-auth/pkg/mocks"
@@ -19,7 +21,9 @@ import (
 )
 
 func TestServiceLogin(t *testing.T) {
-	randomUser := createRandomUser(t)
+	t.Parallel()
+
+	randomUser := randomUser()
 
 	reqOk := &pb.LoginRequest{
 		Name:     randomUser.Name,
@@ -39,7 +43,7 @@ func TestServiceLogin(t *testing.T) {
 	testCases := []struct {
 		name          string
 		request       *pb.LoginRequest
-		buildStubs    func(store *mocks.MockStorage)
+		buildStubs    func(storage *mocks.MockStorage)
 		checkResponse func(t *testing.T, res *pb.LoginResponse, err error)
 	}{
 		{
@@ -48,8 +52,8 @@ func TestServiceLogin(t *testing.T) {
 				Name:     reqOk.Name,
 				Password: reqOk.Password,
 			},
-			buildStubs: func(store *mocks.MockStorage) {
-				mockStorage.EXPECT().GetUser(gomock.Eq(reqOk.Name)).Times(1).Return(randomUser, nil)
+			buildStubs: func(storage *mocks.MockStorage) {
+				storage.EXPECT().GetUser(gomock.Eq(reqOk.Name)).Times(1).Return(randomUser, nil)
 			},
 			checkResponse: func(t *testing.T, res *pb.LoginResponse, err error) {
 				require.Nil(t, err)
@@ -64,8 +68,8 @@ func TestServiceLogin(t *testing.T) {
 				Name:     reqInvalidPassword.Name,
 				Password: "incorrect",
 			},
-			buildStubs: func(store *mocks.MockStorage) {
-				mockStorage.EXPECT().GetUser(gomock.Eq(reqInvalidPassword.Name)).Times(1).Return(randomUser, nil)
+			buildStubs: func(storage *mocks.MockStorage) {
+				storage.EXPECT().GetUser(gomock.Eq(reqInvalidPassword.Name)).Times(1).Return(randomUser, nil)
 			},
 			checkResponse: func(t *testing.T, res *pb.LoginResponse, err error) {
 				require.NotNil(t, err)
@@ -82,8 +86,8 @@ func TestServiceLogin(t *testing.T) {
 				Name:     reqNotFound.Name,
 				Password: reqNotFound.Password,
 			},
-			buildStubs: func(store *mocks.MockStorage) {
-				mockStorage.EXPECT().GetUser(gomock.Eq(reqNotFound.Name)).Times(1).Return(models.User{}, status.Errorf(codes.NotFound, "user not found"))
+			buildStubs: func(storage *mocks.MockStorage) {
+				storage.EXPECT().GetUser(gomock.Eq(reqNotFound.Name)).Times(1).Return(models.User{}, fmt.Errorf("failed to get user"))
 			},
 			checkResponse: func(t *testing.T, res *pb.LoginResponse, err error) {
 				require.Nil(t, res)
@@ -103,12 +107,12 @@ func TestServiceLogin(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
 
-			store := mocks.NewMockStorage(ctrl)
-			tc.buildStubs(store)
+			storage := mocks.NewMockStorage(ctrl)
+			tc.buildStubs(storage)
 
 			jwt := utils.NewJwtWrapper("secret", "test", 1)
 
-			serv := service.NewService(mockStorage, jwt)
+			serv := service.NewService(storage, jwt)
 
 			res, err := serv.Login(context.Background(), tc.request)
 
@@ -141,32 +145,109 @@ func randomString(n int) string {
 	return randomString
 }
 
-func createRandomUser(t *testing.T) models.User {
-	arg := models.User{
+// func createRandomUser(t *testing.T) models.User {
+// 	arg := models.User{
+// 		Name:     randomUserName(),
+// 		Surname:  randomUserName(),
+// 		Password: utils.HashPassword("qwer1234"),
+// 	}
+
+// 	user, err := TestStorage.CreateUser(arg)
+
+// 	require.NoError(t, err)
+// 	require.NotEmpty(t, user)
+
+// 	require.Equal(t, arg.Name, user.Name)
+// 	require.Equal(t, arg.Surname, user.Surname)
+
+// 	require.NotZero(t, user.ID)
+
+// 	return user
+// }
+
+func randomUser() models.User {
+	user := models.User{
 		Name:     randomUserName(),
 		Surname:  randomUserName(),
 		Password: utils.HashPassword("qwer1234"),
 	}
 
-	user, err := TestStorage.CreateUser(arg)
-
-	require.NoError(t, err)
-	require.NotEmpty(t, user)
-
-	require.Equal(t, arg.Name, user.Name)
-	require.Equal(t, arg.Surname, user.Surname)
-
-	require.NotZero(t, user.ID)
-
 	return user
 }
 
 func TestServiceRegister(t *testing.T) {
-	reqOk := &pb.RegisterRequest{
-		Name: randomUserName(),
-		Surname: randomUserName(),
+	t.Parallel()
+
+	req := &pb.RegisterRequest{
+		Name:     randomUserName(),
+		Surname:  randomUserName(),
 		Password: randomString(8),
 	}
 
-	
+	user := randomUser()
+
+	testCases := []struct {
+		name          string
+		request       *pb.RegisterRequest
+		buildStubs    func(storage *mocks.MockStorage)
+		checkResponse func(t *testing.T, res *pb.RegisterResponse, err error)
+	}{
+		{
+			name: "OK",
+			request: &pb.RegisterRequest{
+				Name:     req.Name,
+				Surname:  req.Surname,
+				Password: req.Password,
+			},
+			buildStubs: func(storage *mocks.MockStorage) {
+				storage.EXPECT().GetUser(gomock.Eq(req.Name)).Times(1).Return(models.User{}, fmt.Errorf("failed to get user"))
+				storage.EXPECT().CreateUser(gomock.Eq(user)).Times(1).Return(models.User{ID: 1, Name: req.Name, Surname: req.Surname, Password: utils.HashPassword(req.Password)}, nil)
+			},
+			checkResponse: func(t *testing.T, res *pb.RegisterResponse, err error) {
+				require.NoError(t, err)
+				require.NotNil(t, res)
+				require.Equal(t, http.StatusCreated, res.Status)
+			},
+		},
+		{
+			name: "Internal",
+			request: &pb.RegisterRequest{
+				Name:     req.Name,
+				Surname:  req.Surname,
+				Password: req.Password,
+			},
+			buildStubs: func(storage *mocks.MockStorage) {
+				storage.EXPECT().GetUser(gomock.Eq(req.Name)).Times(1).Return(models.User{}, fmt.Errorf("failed to get user"))
+				storage.EXPECT().CreateUser(gomock.Eq(req)).Times(1).Return(models.User{}, fmt.Errorf("failed to create user:"))
+			},
+			checkResponse: func(t *testing.T, res *pb.RegisterResponse, err error) {
+				require.Error(t, err)
+				require.Nil(t, res)
+
+				status, ok := status.FromError(err)
+				require.True(t, ok)
+				require.Equal(t, codes.Internal, status.Code())
+			},
+		},
+	}
+
+	for i := range testCases {
+		tc := testCases[i]
+
+		t.Run(tc.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			storage := mocks.NewMockStorage(ctrl)
+			tc.buildStubs(storage)
+
+			jwt := utils.NewJwtWrapper("secret", "test", 1)
+
+			serv := service.NewService(storage, jwt)
+
+			res, err := serv.Register(context.Background(), tc.request)
+
+			tc.checkResponse(t, res, err)
+		})
+	}
 }

@@ -33,6 +33,8 @@ func NewService(s db.Storage, jwt utils.JwtWrapper) Service {
 	}
 }
 
+// TODO: grpc_validator pacakage for message validations
+
 func (srv *service) Register(ctx context.Context, req *pb.RegisterRequest) (*pb.RegisterResponse, error) {
 	var user models.User
 	if _, err := srv.S.GetUser(req.Name); err == nil {
