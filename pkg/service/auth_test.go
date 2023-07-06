@@ -2,10 +2,9 @@ package service_test
 
 import (
 	"context"
-	"crypto/rand"
 	"fmt"
-	"math/big"
 	"net/http"
+	"reflect"
 	"testing"
 
 	"name-counter-auth/pkg/mocks"
@@ -13,6 +12,7 @@ import (
 	"name-counter-auth/pkg/pb"
 	"name-counter-auth/pkg/service"
 	"name-counter-auth/pkg/utils"
+	"name-counter-auth/pkg/utils/random"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
@@ -20,10 +20,87 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-func TestServiceLogin(t *testing.T) {
-	t.Parallel()
+func TestServiceRegister(t *testing.T) {
+	req := &pb.RegisterRequest{
+		Name:     random.RandomUserName(),
+		Surname:  random.RandomUserName(),
+		Password: random.RandomString(8),
+	}
 
-	randomUser := randomUser()
+	user := models.User{
+		Name:     req.Name,
+		Surname:  req.Surname,
+		Password: utils.HashPassword(req.Password),
+	}
+
+	testCases := []struct {
+		name          string
+		request       *pb.RegisterRequest
+		buildStubs    func(storage *mocks.MockStorage)
+		checkResponse func(t *testing.T, res *pb.RegisterResponse, err error)
+	}{
+		{
+			name: "OK",
+			request: &pb.RegisterRequest{
+				Name:     req.Name,
+				Surname:  req.Surname,
+				Password: req.Password,
+			},
+			buildStubs: func(storage *mocks.MockStorage) {
+				storage.EXPECT().GetUser(gomock.Eq(req.Name)).Times(1).Return(models.User{}, fmt.Errorf("failed to get user"))
+				storage.EXPECT().CreateUser(NoHashMatcher(user, req.Password)).Times(1).Return(models.User{ID: 1, Name: user.Name, Surname: user.Surname, Password: user.Password}, nil)
+			},
+			checkResponse: func(t *testing.T, res *pb.RegisterResponse, err error) {
+				require.NoError(t, err)
+				require.NotNil(t, res)
+				require.Equal(t, http.StatusCreated, int(res.Status))
+			},
+		},
+		{
+			name: "Internal",
+			request: &pb.RegisterRequest{
+				Name:     req.Name,
+				Surname:  req.Surname,
+				Password: req.Password,
+			},
+			buildStubs: func(storage *mocks.MockStorage) {
+				storage.EXPECT().GetUser(gomock.Eq(req.Name)).Times(1).Return(models.User{}, fmt.Errorf("failed to get user"))
+				storage.EXPECT().CreateUser(NoHashMatcher(user, req.Password)).Times(1).Return(models.User{}, fmt.Errorf("failed to create user:"))
+			},
+			checkResponse: func(t *testing.T, res *pb.RegisterResponse, err error) {
+				require.Error(t, err)
+				require.Nil(t, res)
+
+				status, ok := status.FromError(err)
+				require.True(t, ok)
+				require.Equal(t, codes.Internal, status.Code())
+			},
+		},
+	}
+
+	for i := range testCases {
+		tc := testCases[i]
+
+		t.Run(tc.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			storage := mocks.NewMockStorage(ctrl)
+			tc.buildStubs(storage)
+
+			jwt := utils.NewJwtWrapper("secret", "test", 1)
+
+			serv := service.NewService(storage, jwt)
+
+			res, err := serv.Register(context.Background(), tc.request)
+
+			tc.checkResponse(t, res, err)
+		})
+	}
+}
+
+func TestServiceLogin(t *testing.T) {
+	randomUser := random.RandomUser()
 
 	reqOk := &pb.LoginRequest{
 		Name:     randomUser.Name,
@@ -121,133 +198,31 @@ func TestServiceLogin(t *testing.T) {
 	}
 }
 
-// /////////////
-func randomUserName() string {
-	str := randomString(6)
-	return str
+type noHashMatcher struct {
+	arg      models.User
+	password string
 }
 
-const alphabet = "abcdefghijklmnopqrstuvwxyz"
-
-func randomString(n int) string {
-	// Calculate the length of the letterBytes string
-	letterBytesLength := big.NewInt(int64(len(alphabet)))
-
-	// Generate random bytes
-	randomBytes := make([]byte, n)
-	for i := 0; i < n; i++ {
-		randomIndex, _ := rand.Int(rand.Reader, letterBytesLength)
-		randomBytes[i] = alphabet[randomIndex.Int64()]
+func (m noHashMatcher) Matches(x interface{}) bool {
+	arg, ok := x.(models.User)
+	if !ok {
+		return false
 	}
 
-	// Convert random bytes to a string
-	randomString := string(randomBytes)
-	return randomString
+	correct := utils.CheckPasswordHash(m.password, arg.Password)
+	if !correct {
+		return false
+	}
+	arg.Password = m.arg.Password
+	deepBool := reflect.DeepEqual(m.arg, arg)
+
+	return deepBool
 }
 
-// func createRandomUser(t *testing.T) models.User {
-// 	arg := models.User{
-// 		Name:     randomUserName(),
-// 		Surname:  randomUserName(),
-// 		Password: utils.HashPassword("qwer1234"),
-// 	}
-
-// 	user, err := TestStorage.CreateUser(arg)
-
-// 	require.NoError(t, err)
-// 	require.NotEmpty(t, user)
-
-// 	require.Equal(t, arg.Name, user.Name)
-// 	require.Equal(t, arg.Surname, user.Surname)
-
-// 	require.NotZero(t, user.ID)
-
-// 	return user
-// }
-
-func randomUser() models.User {
-	user := models.User{
-		Name:     randomUserName(),
-		Surname:  randomUserName(),
-		Password: utils.HashPassword("qwer1234"),
-	}
-
-	return user
+func (m noHashMatcher) String() string {
+	return fmt.Sprintf("matches arg %v and password %v", m.arg, m.password)
 }
 
-func TestServiceRegister(t *testing.T) {
-	t.Parallel()
-
-	req := &pb.RegisterRequest{
-		Name:     randomUserName(),
-		Surname:  randomUserName(),
-		Password: randomString(8),
-	}
-
-	user := randomUser()
-
-	testCases := []struct {
-		name          string
-		request       *pb.RegisterRequest
-		buildStubs    func(storage *mocks.MockStorage)
-		checkResponse func(t *testing.T, res *pb.RegisterResponse, err error)
-	}{
-		{
-			name: "OK",
-			request: &pb.RegisterRequest{
-				Name:     req.Name,
-				Surname:  req.Surname,
-				Password: req.Password,
-			},
-			buildStubs: func(storage *mocks.MockStorage) {
-				storage.EXPECT().GetUser(gomock.Eq(req.Name)).Times(1).Return(models.User{}, fmt.Errorf("failed to get user"))
-				storage.EXPECT().CreateUser(gomock.Eq(user)).Times(1).Return(models.User{ID: 1, Name: req.Name, Surname: req.Surname, Password: utils.HashPassword(req.Password)}, nil)
-			},
-			checkResponse: func(t *testing.T, res *pb.RegisterResponse, err error) {
-				require.NoError(t, err)
-				require.NotNil(t, res)
-				require.Equal(t, http.StatusCreated, res.Status)
-			},
-		},
-		{
-			name: "Internal",
-			request: &pb.RegisterRequest{
-				Name:     req.Name,
-				Surname:  req.Surname,
-				Password: req.Password,
-			},
-			buildStubs: func(storage *mocks.MockStorage) {
-				storage.EXPECT().GetUser(gomock.Eq(req.Name)).Times(1).Return(models.User{}, fmt.Errorf("failed to get user"))
-				storage.EXPECT().CreateUser(gomock.Eq(req)).Times(1).Return(models.User{}, fmt.Errorf("failed to create user:"))
-			},
-			checkResponse: func(t *testing.T, res *pb.RegisterResponse, err error) {
-				require.Error(t, err)
-				require.Nil(t, res)
-
-				status, ok := status.FromError(err)
-				require.True(t, ok)
-				require.Equal(t, codes.Internal, status.Code())
-			},
-		},
-	}
-
-	for i := range testCases {
-		tc := testCases[i]
-
-		t.Run(tc.name, func(t *testing.T) {
-			ctrl := gomock.NewController(t)
-			defer ctrl.Finish()
-
-			storage := mocks.NewMockStorage(ctrl)
-			tc.buildStubs(storage)
-
-			jwt := utils.NewJwtWrapper("secret", "test", 1)
-
-			serv := service.NewService(storage, jwt)
-
-			res, err := serv.Register(context.Background(), tc.request)
-
-			tc.checkResponse(t, res, err)
-		})
-	}
+func NoHashMatcher(arg models.User, password string) gomock.Matcher {
+	return noHashMatcher{arg, password}
 }

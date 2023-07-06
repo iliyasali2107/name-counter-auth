@@ -1,4 +1,4 @@
-package service_test
+package db_test
 
 import (
 	"log"
@@ -11,13 +11,15 @@ import (
 	"github.com/spf13/viper"
 )
 
+var TestStorage db.Storage
+
 func TestMain(m *testing.M) {
 	config, err := loadTestConfig()
 	if err != nil {
 		log.Fatal("cannot load config:", err)
 	}
 
-	db.Init(config.DBUrl)
+	TestStorage = db.Init(config.DBUrl)
 	os.Exit(m.Run())
 }
 
@@ -34,7 +36,7 @@ func loadTestConfig() (config config.Config, err error) {
 		return
 	}
 
-	viper.Unmarshal(&config)
+	err = viper.Unmarshal(&config)
 
 	return config, nil
 }
