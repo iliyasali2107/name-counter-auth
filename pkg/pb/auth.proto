@@ -26,7 +26,6 @@ message RegisterResponse {
 
 
 // Login
-
 message LoginRequest {
     string name = 1;
     string password = 2;

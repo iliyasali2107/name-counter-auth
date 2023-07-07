@@ -11,7 +11,7 @@ client:
 	go run ./cmd/client/*
 
 gen:
-	protoc -I=./pkg/pb --go_out=./ --go-grpc_out=./ ./pkg/pb/*.proto
+	protoc -I=./pkg/pb --go_out=./ --go-grpc_out=./ ./pkg/pb/*.proto --govalidators_out=./
 
 start:
 	docker start my-postgres

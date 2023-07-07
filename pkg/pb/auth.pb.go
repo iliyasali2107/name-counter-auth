@@ -139,6 +139,7 @@ func (x *RegisterResponse) GetError() string {
 	return ""
 }
 
+// Login
 type LoginRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
