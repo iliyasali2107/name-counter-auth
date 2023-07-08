@@ -22,12 +22,14 @@ import (
 
 func TestServiceRegister(t *testing.T) {
 	req := &pb.RegisterRequest{
+		Email:    random.RandomEmail(),
 		Name:     random.RandomUserName(),
 		Surname:  random.RandomUserName(),
 		Password: random.RandomString(8),
 	}
 
 	user := models.User{
+		Email:    req.Email,
 		Name:     req.Name,
 		Surname:  req.Surname,
 		Password: utils.HashPassword(req.Password),
@@ -40,14 +42,10 @@ func TestServiceRegister(t *testing.T) {
 		checkResponse func(t *testing.T, res *pb.RegisterResponse, err error)
 	}{
 		{
-			name: "OK",
-			request: &pb.RegisterRequest{
-				Name:     req.Name,
-				Surname:  req.Surname,
-				Password: req.Password,
-			},
+			name:    "OK",
+			request: req,
 			buildStubs: func(storage *mocks.MockStorage) {
-				storage.EXPECT().GetUser(gomock.Eq(req.Name)).Times(1).Return(models.User{}, fmt.Errorf("failed to get user"))
+				storage.EXPECT().GetUser(gomock.Eq(req.Email)).Times(1).Return(models.User{}, fmt.Errorf("failed to get user"))
 				storage.EXPECT().CreateUser(NoHashMatcher(user, req.Password)).Times(1).Return(models.User{ID: 1, Name: user.Name, Surname: user.Surname, Password: user.Password}, nil)
 			},
 			checkResponse: func(t *testing.T, res *pb.RegisterResponse, err error) {
@@ -57,14 +55,10 @@ func TestServiceRegister(t *testing.T) {
 			},
 		},
 		{
-			name: "Internal",
-			request: &pb.RegisterRequest{
-				Name:     req.Name,
-				Surname:  req.Surname,
-				Password: req.Password,
-			},
+			name:    "Internal",
+			request: req,
 			buildStubs: func(storage *mocks.MockStorage) {
-				storage.EXPECT().GetUser(gomock.Eq(req.Name)).Times(1).Return(models.User{}, fmt.Errorf("failed to get user"))
+				storage.EXPECT().GetUser(gomock.Eq(req.Email)).Times(1).Return(models.User{}, fmt.Errorf("failed to get user"))
 				storage.EXPECT().CreateUser(NoHashMatcher(user, req.Password)).Times(1).Return(models.User{}, fmt.Errorf("failed to create user:"))
 			},
 			checkResponse: func(t *testing.T, res *pb.RegisterResponse, err error) {
@@ -103,17 +97,17 @@ func TestServiceLogin(t *testing.T) {
 	randomUser := random.RandomUser()
 
 	reqOk := &pb.LoginRequest{
-		Name:     randomUser.Name,
+		Email:    randomUser.Email,
 		Password: "qwer1234",
 	}
 
 	reqInvalidPassword := &pb.LoginRequest{
-		Name:     randomUser.Name,
+		Email:    randomUser.Email,
 		Password: "invalid",
 	}
 
 	reqNotFound := &pb.LoginRequest{
-		Name:     "not-found",
+		Email:    "not-found@test.com",
 		Password: "qwer1234",
 	}
 
@@ -126,11 +120,11 @@ func TestServiceLogin(t *testing.T) {
 		{
 			name: "OK",
 			request: &pb.LoginRequest{
-				Name:     reqOk.Name,
+				Email:    reqOk.Email,
 				Password: reqOk.Password,
 			},
 			buildStubs: func(storage *mocks.MockStorage) {
-				storage.EXPECT().GetUser(gomock.Eq(reqOk.Name)).Times(1).Return(randomUser, nil)
+				storage.EXPECT().GetUser(gomock.Eq(reqOk.Email)).Times(1).Return(randomUser, nil)
 			},
 			checkResponse: func(t *testing.T, res *pb.LoginResponse, err error) {
 				require.Nil(t, err)
@@ -142,11 +136,11 @@ func TestServiceLogin(t *testing.T) {
 		{
 			name: "Invalid Password",
 			request: &pb.LoginRequest{
-				Name:     reqInvalidPassword.Name,
+				Email:    reqInvalidPassword.Email,
 				Password: "incorrect",
 			},
 			buildStubs: func(storage *mocks.MockStorage) {
-				storage.EXPECT().GetUser(gomock.Eq(reqInvalidPassword.Name)).Times(1).Return(randomUser, nil)
+				storage.EXPECT().GetUser(gomock.Eq(reqInvalidPassword.Email)).Times(1).Return(randomUser, nil)
 			},
 			checkResponse: func(t *testing.T, res *pb.LoginResponse, err error) {
 				require.NotNil(t, err)
@@ -160,11 +154,11 @@ func TestServiceLogin(t *testing.T) {
 		{
 			name: "Not Found",
 			request: &pb.LoginRequest{
-				Name:     reqNotFound.Name,
+				Email:    reqNotFound.Email,
 				Password: reqNotFound.Password,
 			},
 			buildStubs: func(storage *mocks.MockStorage) {
-				storage.EXPECT().GetUser(gomock.Eq(reqNotFound.Name)).Times(1).Return(models.User{}, fmt.Errorf("failed to get user"))
+				storage.EXPECT().GetUser(gomock.Eq(reqNotFound.Email)).Times(1).Return(models.User{}, fmt.Errorf("failed to get user"))
 			},
 			checkResponse: func(t *testing.T, res *pb.LoginResponse, err error) {
 				require.Nil(t, res)

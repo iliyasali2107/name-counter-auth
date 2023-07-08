@@ -34,7 +34,8 @@ func Init(url string) Storage {
 
 	query := `CREATE TABLE IF NOT EXISTS users (
 		id SERIAL PRIMARY KEY,
-		name VARCHAR(255) UNIQUE,
+		email VARCHAR(255) UNIQUE,
+		name VARCHAR(255),
 		surname VARCHAR(255),
 		password VARCHAR(255)
 	);`
@@ -47,11 +48,11 @@ func Init(url string) Storage {
 	return &storage{conn}
 }
 
-func (s *storage) GetUser(name string) (models.User, error) {
-	query := "SELECT id, name, surname, password FROM users WHERE name = $1"
+func (s *storage) GetUser(email string) (models.User, error) {
+	query := "SELECT id, email, name, surname, password FROM users WHERE email = $1"
 
 	var user models.User
-	err := s.DB.QueryRow(context.Background(), query, name).Scan(&user.ID, &user.Name, &user.Surname, &user.Password)
+	err := s.DB.QueryRow(context.Background(), query, email).Scan(&user.ID, &user.Email, &user.Name, &user.Surname, &user.Password)
 	if err != nil {
 		return models.User{}, fmt.Errorf("failed to get user: %w", err)
 	}
@@ -60,9 +61,11 @@ func (s *storage) GetUser(name string) (models.User, error) {
 }
 
 func (s *storage) CreateUser(user models.User) (models.User, error) {
-	query := "INSERT INTO users (name, surname, password) VALUES ($1, $2, $3) RETURNING id"
+	query := "INSERT INTO users (email, name, surname, password) VALUES ($1, $2, $3, $4) RETURNING id"
 
-	err := s.DB.QueryRow(context.Background(), query, user.Name, user.Surname, user.Password).Scan(&user.ID)
+	args := []interface{}{user.Email, user.Name, user.Surname, user.Password}
+
+	err := s.DB.QueryRow(context.Background(), query, args...).Scan(&user.ID)
 	if err != nil {
 		return models.User{}, fmt.Errorf("failed to create user: %w", err)
 	}

@@ -36,11 +36,12 @@ func NewService(s db.Storage, jwt utils.JwtWrapper) Service {
 // TODO: grpc_validator pacakage for message validations
 
 func (srv *service) Register(ctx context.Context, req *pb.RegisterRequest) (*pb.RegisterResponse, error) {
-	var user models.User
-	if _, err := srv.S.GetUser(req.Name); err == nil {
+	if _, err := srv.S.GetUser(req.Email); err == nil {
 		return nil, status.Errorf(codes.AlreadyExists, "user already exists")
 	}
 
+	var user models.User
+	user.Email = req.Email
 	user.Name = req.Name
 	user.Surname = req.Surname
 	user.Password = utils.HashPassword(req.Password)
@@ -59,7 +60,7 @@ func (srv *service) Register(ctx context.Context, req *pb.RegisterRequest) (*pb.
 func (srv *service) Login(ctx context.Context, req *pb.LoginRequest) (*pb.LoginResponse, error) {
 	var user models.User
 
-	user, err := srv.S.GetUser(req.Name)
+	user, err := srv.S.GetUser(req.Email)
 	if err != nil {
 		return nil, status.Errorf(codes.NotFound, "user not found")
 	}

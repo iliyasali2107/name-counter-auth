@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+
 	"name-counter-auth/pkg/config"
 
 	"github.com/gin-gonic/gin"
@@ -18,7 +19,7 @@ func main() {
 	}
 	r := gin.Default()
 	routes := r.Group("/auth")
-	routes.POST("register", svc.Register)
+	routes.POST("/register", svc.Register)
 	routes.POST("/login", svc.Login)
 
 	r.Run(c.ClientPort)

@@ -14,9 +14,10 @@ service AuthService {
 
 // Register
 message RegisterRequest {
-    string name = 1;
-    string surname = 2;
-    string password = 3; 
+    string email = 1;
+    string name = 2;
+    string surname = 3;
+    string password = 4; 
 }
 
 message RegisterResponse {
@@ -27,7 +28,7 @@ message RegisterResponse {
 
 // Login
 message LoginRequest {
-    string name = 1;
+    string email = 1;
     string password = 2;
 }
 
@@ -37,8 +38,8 @@ message LoginResponse {
     string token = 3;
 }
 
-// Validate
 
+// Validate
 message ValidateRequest {string token = 1; }
 
 message ValidateResponse {

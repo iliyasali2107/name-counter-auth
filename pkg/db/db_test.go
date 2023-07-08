@@ -17,7 +17,7 @@ func TestGetUser(t *testing.T) {
 	user := createRandomUser(t)
 
 	t.Run("OK", func(t *testing.T) {
-		user1, err := TestStorage.GetUser(user.Name)
+		user1, err := TestStorage.GetUser(user.Email)
 		require.NoError(t, err)
 		require.NotEmpty(t, user1)
 		require.Equal(t, user, user1)

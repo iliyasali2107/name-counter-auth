@@ -2,8 +2,9 @@ package routes
 
 import (
 	"context"
-	"name-counter-auth/pkg/pb"
 	"net/http"
+
+	"name-counter-auth/pkg/pb"
 
 	"github.com/gin-gonic/gin"
 	"google.golang.org/grpc/codes"
@@ -11,25 +12,24 @@ import (
 )
 
 type RegisterRequestBody struct {
-	Name     string `json:"name"`
-	Surname  string `json:"surname"`
-	Password string `json:"password"`
+	Name     string `json:"name" binding:"required,alpha,min=3"`
+	Surname  string `json:"surname" binding:"required,alpha,min=3"`
+	Password string `json:"password" binding:"required,alphanum,min=8"`
 }
 
 func Register(ctx *gin.Context, c pb.AuthServiceClient) {
-	b := RegisterRequestBody{}
+	var req RegisterRequestBody
 
-	if err := ctx.BindJSON(&b); err != nil {
-		ctx.AbortWithError(http.StatusBadRequest, err)
+	if err := ctx.BindJSON(&req); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid credentials"})
 		return
 	}
 
 	res, err := c.Register(context.Background(), &pb.RegisterRequest{
-		Name:     b.Name,
-		Surname:  b.Surname,
-		Password: b.Password,
+		Name:     req.Name,
+		Surname:  req.Surname,
+		Password: req.Password,
 	})
-
 	if err != nil {
 		status, _ := status.FromError(err)
 		if status.Code() == codes.AlreadyExists {

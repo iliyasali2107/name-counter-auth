@@ -2,6 +2,7 @@ package random
 
 import (
 	"crypto/rand"
+	"fmt"
 	"math/big"
 
 	"name-counter-auth/pkg/models"
@@ -54,10 +55,15 @@ func RandomString(n int) string {
 
 func RandomUser() models.User {
 	user := models.User{
+		Email:    RandomEmail(),
 		Name:     RandomUserName(),
 		Surname:  RandomUserName(),
 		Password: utils.HashPassword("qwer1234"),
 	}
 
 	return user
+}
+
+func RandomEmail() string {
+	return fmt.Sprintf("%s@email.com", RandomString(6))
 }
