@@ -48,7 +48,7 @@ func (srv *service) Register(ctx context.Context, req *pb.RegisterRequest) (*pb.
 
 	user, err := srv.S.CreateUser(user)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "something unexpected happened")
+		return nil, status.Errorf(codes.Internal, "something unexpected happened"+err.Error())
 	}
 
 	// TODO: user caching (redis)
@@ -87,7 +87,7 @@ func (srv *service) Validate(ctx context.Context, req *pb.ValidateRequest) (*pb.
 		}, err
 	}
 
-	user, err := srv.S.GetUser(claims.Name)
+	user, err := srv.S.GetUser(claims.Email)
 	if err != nil {
 		return &pb.ValidateResponse{
 			Status: http.StatusNotFound,

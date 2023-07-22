@@ -8,7 +8,6 @@ type Config struct {
 	JWTSecretKey    string `mapstructure:"JWT_SECRET_KEY"`
 	Issuer          string `mapstructure:"ISSUER"`
 	ExpirationHours int    `mapstructure:"EXPIRATION_HOURS"`
-	ClientPort      string `mapstructure:"CLIENT_PORT"`
 }
 
 func LoadConfig() (config Config, err error) {

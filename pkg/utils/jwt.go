@@ -17,8 +17,8 @@ type JwtWrapper struct {
 
 type jwtClaims struct {
 	jwt.RegisteredClaims
-	Id   int64
-	Name string
+	Id    int64
+	Email string
 }
 
 func NewJwtWrapper(secretKey string, issuer string, expirationHours int64) JwtWrapper {
@@ -31,8 +31,8 @@ func NewJwtWrapper(secretKey string, issuer string, expirationHours int64) JwtWr
 
 func (w *JwtWrapper) GenerateToken(user models.User) (signedToken string, err error) {
 	claims := &jwtClaims{
-		Id:   user.ID,
-		Name: user.Name,
+		Id:    user.ID,
+		Email: user.Email,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Local().Add(time.Hour * time.Duration(w.ExpirationHours))),
 			Issuer:    w.Issuer,
