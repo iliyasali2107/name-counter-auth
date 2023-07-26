@@ -2,7 +2,7 @@ proto:
 	cprotoc pkg/pb/*.proto --go_out=plugins=grpc:.
 
 postgres:
-	docker run -d --name my-postgres -e POSTGRES_USER=user -e POSTGRES_PASSWORD=secret -e POSTGRES_DB=name_counter -p 5432:5432 postgres:latest
+	docker run -d --name my-postgres -e POSTGRES_USER=user -e POSTGRES_PASSWORD=secret -e POSTGRES_DB=url_redirector -p 5432:5432 postgres:latest
 
 server:
 	go run ./cmd/main.go

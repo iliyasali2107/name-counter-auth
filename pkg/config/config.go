@@ -1,6 +1,8 @@
 package config
 
-import "github.com/spf13/viper"
+import (
+	"os"
+)
 
 type Config struct {
 	Port            string `mapstructure:"PORT"`
@@ -11,19 +13,66 @@ type Config struct {
 }
 
 func LoadConfig() (config Config, err error) {
-	viper.AddConfigPath("./pkg/config/envs")
-	viper.SetConfigName(".env")
-	viper.SetConfigType("env")
-
-	viper.AutomaticEnv()
-
-	err = viper.ReadInConfig()
-
-	if err != nil {
-		return
+	config.DBUrl = os.Getenv("POSTGRES_DNS")
+	if config.DBUrl == "" {
+		config.DBUrl = "postgres://user:secret@localhost:5432/url_redirector"
+	}
+	config.JWTSecretKey = os.Getenv("JWT_SECRET_KEY")
+	if config.JWTSecretKey == "" {
+		config.JWTSecretKey = "not-secret-key"
+	}
+	config.Issuer = os.Getenv("ISSUER")
+	config.Port = os.Getenv("PORT")
+	if config.Port == "" {
+		config.Port = ":50052"
 	}
 
-	err = viper.Unmarshal(&config)
+	hoursStr := os.Getenv("EXPIRATION_HOURS")
+	hoursInt := Atoi(hoursStr)
+	if hoursInt == 0 {
+		config.ExpirationHours = 1
+	}
+
+	config.ExpirationHours = hoursInt
 
 	return
+}
+
+func Atoi(s string) int {
+	var n int
+	var signNeg bool
+	signed := false
+	if len(s) == 0 {
+		return 0
+	}
+	if s[0] == '-' {
+		s = s[1:]
+		signNeg = true
+		signed = true
+	} else if s[0] == '+' {
+		s = s[1:]
+		signNeg = false
+		signed = true
+	} else {
+		signed = true
+	}
+	for _, i := range s {
+		if !signed {
+			if (i < '0' || i > '9') && i != '-' && i != '+' {
+				return 0
+			} else {
+				n = n*10 + int(i-48)
+			}
+		} else {
+			if i < '0' || i > '9' {
+				return 0
+			} else {
+				n = n*10 + int(i-48)
+			}
+		}
+	}
+	if signNeg {
+		return -1 * n
+	}
+	return n
 }

@@ -3,12 +3,13 @@ package main
 import (
 	"fmt"
 	"log"
+	"net"
+
 	"name-counter-auth/pkg/config"
 	"name-counter-auth/pkg/db"
 	"name-counter-auth/pkg/pb"
 	"name-counter-auth/pkg/service"
 	"name-counter-auth/pkg/utils"
-	"net"
 
 	"google.golang.org/grpc"
 )
